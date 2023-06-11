@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Scanner;
 import java.util.stream.Collectors;
 
 public class MainActivity extends AppCompatActivity {
@@ -199,6 +200,33 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
             Toast.makeText(this, "Error saving data", Toast.LENGTH_SHORT).show();
         }
+
+        // Count the samples in the file
+        int sampleCount = countLocationInFile(location, filename);
+        int samplesRequired = filename.equals("EastWest.csv") ? 300 : 200;
+        int samplesLeft = samplesRequired - sampleCount;
+
+        Toast.makeText(this, location + ", " + samplesLeft + " samples left", Toast.LENGTH_SHORT).show();
+    }
+
+    private int countLocationInFile(String location, String filename) {
+        int count = 0;
+        try {
+            File documentsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+            File file = new File(documentsDirectory, filename);
+            Scanner scanner = new Scanner(file);
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                if (line.startsWith(location)) {
+                    count++;
+                }
+            }
+            scanner.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error reading data", Toast.LENGTH_SHORT).show();
+        }
+        return count;
     }
 
 }
