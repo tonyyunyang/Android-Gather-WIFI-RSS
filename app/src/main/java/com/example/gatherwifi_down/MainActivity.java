@@ -22,7 +22,10 @@ import org.w3c.dom.Text;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -36,6 +39,8 @@ public class MainActivity extends AppCompatActivity {
     private WifiInfo wifiInfo;
     private static final int PERMISSIONS_REQUEST_CODE = 123;
     private TextView wifi;
+    private final List<String> ALLOWED_SSIDS = Arrays.asList("TUD-facility", "tudelft-dastud", "eduroam");
+    private String previousResult = "";  // to store the previous result
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -139,25 +144,54 @@ public class MainActivity extends AppCompatActivity {
         // Get the scan results
         List<ScanResult> scanResults = wifiManager.getScanResults();
 
-        // Display the scan results
-        StringBuilder resultBuilder = new StringBuilder();
-        for (ScanResult scanResult : scanResults) {
-            String ssid = scanResult.SSID;
-            int rssi = scanResult.level;
+        // Filter and sort the scan results
+        scanResults = scanResults.stream()
+                .filter(scanResult -> ALLOWED_SSIDS.contains(scanResult.SSID)) // Filter allowed SSIDs
+                .sorted((scanResult1, scanResult2) -> Integer.compare(scanResult2.level, scanResult1.level)) // Sort by RSSI level (descending)
+                .collect(Collectors.toList());
 
-            // Append SSID and RSSI to the result string
-            resultBuilder.append("SSID: ").append(ssid).append(", RSSI: ").append(rssi).append("\n");
+        // Check if there are at least 20 access points
+        if (scanResults.size() < 20) {
+            Toast.makeText(this, "Not enough access points", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        // Update the text view with the collected RSS data
+        StringBuilder resultBuilder = new StringBuilder();
+        StringBuilder resultFileBuilder = new StringBuilder();
+
+        // Collect only first 20 results
+        for (int i = 0; i < 20; i++) {
+            ScanResult scanResult = scanResults.get(i);
+            int rssi = scanResult.level;
+            String bssid = scanResult.BSSID;
+
+            // For TextView
+            resultBuilder.append("SSID: ").append(scanResult.SSID).append(", BSSID: ").append(bssid).append(", RSSI: ").append(rssi).append("\n");
+            // For File
+            if (i == 0) resultFileBuilder.append(location).append("!");
+            resultFileBuilder.append(bssid).append("!").append(rssi);
+            if (i < 19) resultFileBuilder.append("!");
+        }
+
+        // Display the scan results
         wifi.setText(resultBuilder.toString());
 
+        // Check if the result is same as the previous result
+        if(resultFileBuilder.toString().equals(previousResult)) {
+            Toast.makeText(this, "Data not changed", Toast.LENGTH_SHORT).show();
+            return;
+        } else {
+            previousResult = resultFileBuilder.toString();
+        }
+
+        // Choose the file name based on location
+        String filename = location.equalsIgnoreCase("west") || location.equalsIgnoreCase("east") ? "EastWest.csv" : "Floors.csv";
 
         try {
             File documentsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-            File file = new File(documentsDirectory, location + ".csv");
+            File file = new File(documentsDirectory, filename);
             FileWriter writer = new FileWriter(file, true);
-            writer.append(resultBuilder.toString());
+            writer.append(resultFileBuilder.toString()).append("\n");
             writer.flush();
             writer.close();
             Toast.makeText(this, "Data saved", Toast.LENGTH_SHORT).show();
