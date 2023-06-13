@@ -53,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
         Button floor3 = (Button) findViewById(R.id.floor3);
         Button west = (Button) findViewById(R.id.west);
         Button east = (Button) findViewById(R.id.east);
+        Button refresh = (Button) findViewById(R.id.refresh);
         wifi = (TextView) findViewById(R.id.wifi);
 
         // Set the wifi manager
@@ -93,6 +94,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 WIFI("west");
+            }
+        });
+
+        refresh.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                WIFIREFRESH("refresh");
             }
         });
     }
@@ -207,6 +215,97 @@ public class MainActivity extends AppCompatActivity {
         int samplesLeft = samplesRequired - sampleCount;
 
         Toast.makeText(this, location + ", " + samplesLeft + " samples left", Toast.LENGTH_SHORT).show();
+    }
+
+    private void WIFIREFRESH(String location) {
+        // Check if the Wi-Fi feature is available
+        if (!wifiManager.isWifiEnabled()) {
+            Toast.makeText(this, "Please enable Wi-Fi", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Set text.
+        wifi.setText("\n\tScan all access points:");
+        // Set wifi manager.
+        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+
+        // Check if the necessary permissions are granted
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
+                checkSelfPermission(android.Manifest.permission.CHANGE_WIFI_STATE) != PackageManager.PERMISSION_GRANTED ||
+                checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // Request permissions
+            ActivityCompat.requestPermissions(this, new String[]{
+                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.CHANGE_WIFI_STATE,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+            }, PERMISSIONS_REQUEST_CODE);
+            return;
+        }
+
+        // Start a wifi scan
+        boolean scanStarted = wifiManager.startScan();
+        if (!scanStarted) {
+            Toast.makeText(this, "Scan not started. Please try again.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Get the scan results
+        List<ScanResult> scanResults = wifiManager.getScanResults();
+
+        // Filter and sort the scan results
+        scanResults = scanResults.stream()
+                .filter(scanResult -> ALLOWED_SSIDS.contains(scanResult.SSID)) // Filter allowed SSIDs
+                .sorted((scanResult1, scanResult2) -> Integer.compare(scanResult2.level, scanResult1.level)) // Sort by RSSI level (descending)
+                .collect(Collectors.toList());
+
+        // Check if there are at least 20 access points
+        if (scanResults.size() < 20) {
+            Toast.makeText(this, "Not enough access points", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        StringBuilder resultBuilder = new StringBuilder();
+        StringBuilder resultFileBuilder = new StringBuilder();
+
+        // Collect only first 20 results
+        for (int i = 0; i < 20; i++) {
+            ScanResult scanResult = scanResults.get(i);
+            int rssi = scanResult.level;
+            String bssid = scanResult.BSSID;
+
+            // For TextView
+            resultBuilder.append("SSID: ").append(scanResult.SSID).append(", BSSID: ").append(bssid).append(", RSSI: ").append(rssi).append("\n");
+            // For File
+            if (i == 0) resultFileBuilder.append(location).append("!");
+            resultFileBuilder.append(bssid).append("!").append(rssi);
+            if (i < 19) resultFileBuilder.append("!");
+        }
+
+        // Display the scan results
+        wifi.setText(resultBuilder.toString());
+
+        // Check if the result is same as the previous result
+        if(resultFileBuilder.toString().equals(previousResult)) {
+            Toast.makeText(this, "Data not changed", Toast.LENGTH_SHORT).show();
+            return;
+        } else {
+            previousResult = resultFileBuilder.toString();
+        }
+
+        // Choose the file name based on location
+        String filename = "Refresh.csv";
+
+        try {
+            File documentsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+            File file = new File(documentsDirectory, filename);
+            FileWriter writer = new FileWriter(file, true);
+            writer.append(resultFileBuilder.toString()).append("\n");
+            writer.flush();
+            writer.close();
+            Toast.makeText(this, "Data saved", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error saving data", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private int countLocationInFile(String location, String filename) {

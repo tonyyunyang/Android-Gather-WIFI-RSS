@@ -56,6 +56,16 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <Button
+        android:id="@+id/refresh"
+        android:layout_width="167dp"
+        android:layout_height="105dp"
+        android:layout_marginTop="312dp"
+        android:layout_marginEnd="15dp"
+        android:text="Refresh"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <TextView
         android:id="@+id/wifi"
         android:layout_width="386dp"
