@@ -211,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Count the samples in the file
         int sampleCount = countLocationInFile(location, filename);
-        int samplesRequired = filename.equals("EastWest.csv") ? 300 : 200;
+        int samplesRequired = filename.equals("EastWest.csv") ? 600 : 400;
         int samplesLeft = samplesRequired - sampleCount;
 
         Toast.makeText(this, location + ", " + samplesLeft + " samples left", Toast.LENGTH_SHORT).show();
